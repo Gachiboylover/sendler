@@ -1,4 +1,2 @@
 INFO:aiogram.dispatcher:Start polling
 INFO:aiogram.dispatcher:Run polling for bot @kw_sendler_bot id=6861139860 - 'Sendler'
-INFO:aiogram.event:Update id=111067102 is handled. Duration 530 ms by bot id=6861139860
-INFO:aiogram.event:Update id=111067103 is handled. Duration 250 ms by bot id=6861139860

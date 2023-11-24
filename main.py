@@ -44,7 +44,7 @@ class StepsForm(StatesGroup):
     
     
 async def get_start(message: Message, bot: Bot):
-    await bot.send_message(message.from_user.id, f'Привет {message.from_user.first_name}.', reply_markup=reply_keyboard())
+    await bot.send_message(message.from_user.id, f'Привет {message.from_user.first_name}.\n"/help"- получи помощь.', reply_markup=reply_keyboard())
 
 
 async def get_help(message: Message, bot: Bot):
@@ -67,7 +67,7 @@ async def get_accs(message: Message, bot: Bot):
 
 
 async def get_add_acc(message: Message, bot: Bot, state: FSMContext):
-    await bot.send_message(message.from_user.id, f'Введите данные вида(через пробел): password phone api_id api_hash')
+    await bot.send_message(message.from_user.id, f'Введите данные вида(через пробел): phone password api_id api_hash')
     await state.set_state(StepsForm.GET_FLAG)
 
 async def get_add_acc_flag(message: Message, bot: Bot, state: FSMContext):
@@ -205,11 +205,11 @@ async def get_send_message_answer(message: Message, bot: Bot, state: FSMContext)
         mes = message.text
         accs = DB.db_get_all_accs()
         all_id = DB.db_get_all_users_id()
-        amount_acc = len(accs)
         amount_send_messages = 0
         if len(accs) == 0:
             await bot.send_message(message.from_user.id, 'Нет аккаунтов, или нет активных аккаунтов. ')
         else:
+            await bot.send_message(message.from_user.id, 'Рассылка началась. ')
             for account in accs:
                 try:
                     session = f"sessions/{account[1]}.session"
@@ -217,6 +217,8 @@ async def get_send_message_answer(message: Message, bot: Bot, state: FSMContext)
                     await client.connect()
                     for id_ in all_id:
                         try:
+                            trys = 4
+                            trys_ = 4
                             if id_ in all_id:
                                 peer = types.PeerUser(int(id_))
                                 await client.send_message(peer, mes)
@@ -226,29 +228,37 @@ async def get_send_message_answer(message: Message, bot: Bot, state: FSMContext)
                                 print(f"отправлено сообщение пользователю: {id_}")
                                 await asyncio.sleep(random.randint(30, 90))
                         except FloodWaitError:
-                            await bot.send_message(message.from_user.id, 'К сожалению аккаунт не сможет отправлять сообщения какое-то время..')
+                            await bot.send_message(message.from_user.id, 'К сожалению аккаунт не сможет отправлять сообщения какое-то время...')
+                            await bot.send_message(message.from_user.id, f'Смена аккаунта {account[1]}')
+                            await client.disconnect()
                             await asyncio.sleep(1.5)
-                            amount_acc -= 1
+                            break
                         except PeerFloodError:
-                            await bot.send_message(message.from_user.id, 'Было произведено слишком много запросов (при отправлении сообщений), меняю аккаунт..')
-                            await asyncio.sleep(1.5)
-                            amount_acc -= 1
+                            await bot.send_message(message.from_user.id, 'Было произведено слишком много запросов (при отправлении сообщений) осталось {trys} попыток. ')
+                            trys-=1
+                            if trys<=0:
+                                await bot.send_message(message.from_user.id, f'Смена аккаунта {account[1]}')
+                                await asyncio.sleep(1.5)
+                                break
                         except UserDeactivatedBanError:
-                            await bot.send_message(message.from_user.id, f'Аккаунт ({account[1]}) был заблокирован или взломан!')
+                            await bot.send_message(message.from_user.id, f'Аккаунт {account[1]} был заблокирован или взломан!')
+                            await bot.send_message(message.from_user.id, f'Смена аккаунта {account[1]}')
+                            await client.disconnect()
                             logging.exception("The user has been deleted/deactivated")
-                            amount_acc -= 1
+                            break
                         except Exception as ex:
-                            print(f'Не удалось отправить сообщение пользователю: {id_}')
-                            logging.exception(ex,exc_info=True)
-                            await asyncio.sleep(5.5)
+                            await bot.send_message(message.from_user.id, f'Не удалось отправить сообщение пользователю {id_}, осталось {trys_} попыток.')
+                            print(f'Не удалось отправить сообщение пользователю {id_}, осталось {trys_} попыток.')
+                            trys_-=1
+                            if trys<=0:
+                                await bot.send_message(message.from_user.id, f'Смена аккаунта {account[1]}')
+                                await client.disconnect()
+                                logging.exception(ex,exc_info=True)
+                                await asyncio.sleep(5.5)
+                                break
                 except Exception as ex:
-                    await bot.send_message(message.from_user.id, f'Не удалось подключиться к аккаунту ({account[1]}),Пробую следующий..')
+                    await bot.send_message(message.from_user.id, f'Не удалось подключиться к аккаунту {account[1]}, Пробую следующий..')
                     logging.warning(ex,exc_info=True)
-                    await client.disconnect()
-                    amount_acc -= 1
-        if amount_acc == 0:
-            await bot.send_message(message.from_user.id, 'После череды неудачных попыток, рассылка не удалась')
-        else:
             await bot.send_message(message.from_user.id, f'Рассылка завершена, было отправлено: {amount_send_messages} сообщений пользователям!')
     except Exception:
         await bot.send_message(message.from_user.id, f'Ошибка' )
