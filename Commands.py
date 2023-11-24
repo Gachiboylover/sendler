@@ -30,6 +30,10 @@ async def set_commands(bot: Bot):
         BotCommand(
             command='send_message',
             description='Отправьте сообщение.'
+        ),
+        BotCommand(
+            command='users',
+            description='Получите данные о всех пользователях в формате xlsx.'
         )
     ]
     await bot.set_my_commands(commands)

@@ -56,6 +56,13 @@ class DataBase:
         self.db.commit()
         return all_id
     
+    def db_get_all_users(self):
+        self.cursor.execute(f'SELECT * FROM users')
+        all_users = self.cursor.fetchall()
+        all_users = [list(i) for i in all_users]
+        self.db.commit()
+        return all_users
+    
     def db_change_user_state(self, id_):
         self.cursor.execute(f'UPDATE users SET sending = ? WHERE id = ?', (0, id_))
         self.db.commit()

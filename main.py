@@ -3,8 +3,10 @@ import random
 import logging
 import os
 
+
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message
+from aiogram.types.input_file import FSInputFile
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
@@ -12,6 +14,7 @@ from opentele.tl import TelegramClient
 from opentele.tl.telethon import functions, utils, types
 from telethon.errors import UserDeactivatedBanError,PeerFloodError,FloodWaitError
 from dotenv import load_dotenv
+from openpyxl import Workbook
 
 from Commands import set_commands
 from Keyboards import reply_keyboard, reply_keyboard_accs, reply_keyboard_answer 
@@ -45,8 +48,19 @@ async def get_start(message: Message, bot: Bot):
 
 
 async def get_help(message: Message, bot: Bot):
-    await bot.send_message(message.from_user.id, f'Привет {message.from_user.first_name}.\n"/add_acc" - загрузи сессию.\n"/enable_acc" - сделай аккаунт активным.\n"/disable" - сделай аккаунт неактивным.\n"/pars_users" - спарси пользователей.\n"/send_message" - начни рассылку.\nВАЖНОЕ! При парсинге следите за тем, чтобы бот был в канале, и чтобы канал был открытым.', reply_markup=reply_keyboard())
+    await bot.send_message(message.from_user.id, f'Привет {message.from_user.first_name}.\n"/add_acc" - загрузи сессию.\n"/enable_acc" - сделай аккаунт активным.\n"/disable" - сделай аккаунт неактивным.\n"/pars_users" - спарси пользователей.\n"/send_message" - начни рассылку.\n"/users" - данные о пользователях(xlsx).\nВАЖНОЕ! При парсинге следите за тем, чтобы бот был в канале, и чтобы канал был открытым.', reply_markup=reply_keyboard())
 
+async def get_users(message: Message, bot: Bot):
+    wb = Workbook()
+    ws = wb.active
+    all_users = DB.db_get_all_users()
+    for row in all_users:
+        ws.append(row)
+    wb.save('users.xlsx')
+    doc = FSInputFile('users.xlsx')
+    await bot.send_document(message.from_user.id, doc)
+    ws.delete_rows(1, len(ws['A']))
+    wb.save('users.xlsx')
 
 async def get_accs(message: Message, bot: Bot):
     await bot.send_message(message.from_user.id, f'Выбери действие.', reply_markup=reply_keyboard_accs())       
@@ -157,6 +171,7 @@ async def get_pars_users_answer(message: Message, bot: Bot, state: FSMContext):
         await bot.send_message(message.from_user.id, f'Проверьте ссылку, и состоит ли пользователь в группе. ')
         logging.error(ex,exc_info=True)
         await client.disconnect()
+        await state.clear()
     try:
         iter_users = client.iter_participants(channel)
         all_id = DB.db_get_all_users_id()
@@ -174,9 +189,11 @@ async def get_pars_users_answer(message: Message, bot: Bot, state: FSMContext):
             DB.db_add_users(query_list)
         await client.disconnect()
         await bot.send_message(message.from_user.id, f'Парсинг завершен! Получена информация о {len(query_list)} пользователей')
+        await state.clear()
     except Exception:
         await bot.send_message(message.from_user.id, f'Проверьте чтобы это был открытый канал. ')
         await client.disconnect()
+        await state.clear()
     await state.clear()
         
 async def get_send_message(message: Message, bot: Bot, state: FSMContext):
@@ -235,7 +252,7 @@ async def get_send_message_answer(message: Message, bot: Bot, state: FSMContext)
             await bot.send_message(message.from_user.id, f'Рассылка завершена, было отправлено: {amount_send_messages} сообщений пользователям!')
     except Exception:
         await bot.send_message(message.from_user.id, f'Ошибка' )
-        
+    await state.clear()    
     
 
 async def start():
@@ -248,6 +265,7 @@ async def start():
     dp.message.register(get_start, Command(commands=['start']))
     dp.message.register(get_help, Command(commands=['help']))
     dp.message.register(get_accs, Command(commands=['accs']))
+    dp.message.register(get_users, Command(commands=['users']))
     dp.message.register(get_add_acc, Command(commands=['add_acc']))
     dp.message.register(get_add_acc_flag, StepsForm.GET_FLAG)
     dp.message.register(get_add_acc_answer, StepsForm.GET_ANSWER)
