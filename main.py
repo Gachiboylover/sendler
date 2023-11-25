@@ -48,7 +48,7 @@ async def get_start(message: Message, bot: Bot):
 
 
 async def get_help(message: Message, bot: Bot):
-    await bot.send_message(message.from_user.id, f'Привет {message.from_user.first_name}.\n"/add_acc" - загрузи сессию.\n"/enable_acc" - сделай аккаунт активным.\n"/disable" - сделай аккаунт неактивным.\n"/pars_users" - спарси пользователей.\n"/send_message" - начни рассылку.\n"/users" - данные о пользователях(xlsx).\nВАЖНОЕ! При парсинге следите за тем, чтобы бот был в канале, и чтобы канал был открытым.', reply_markup=reply_keyboard())
+    await bot.send_message(message.from_user.id, f'Привет {message.from_user.first_name}.\n"/add_acc" - загрузи сессию.\n"/enable_acc" - сделай аккаунт активным.\n"/disable" - сделай аккаунт неактивным.\n"/pars_users" - спарси пользователей.\n"/send_message" - начни рассылку.\n"/users" - данные о пользователях(xlsx).\n"/enable_users" - сделай всех пользователей активными для рассылки.\nВАЖНОЕ! При парсинге следите за тем, чтобы бот был в канале, и чтобы канал был открытым.', reply_markup=reply_keyboard())
 
 async def get_users(message: Message, bot: Bot):
     wb = Workbook()
@@ -77,10 +77,10 @@ async def get_add_acc_flag(message: Message, bot: Bot, state: FSMContext):
             await bot.send_message(message.from_user.id, f'Вы уверены?', reply_markup=reply_keyboard_answer())
             await state.set_state(StepsForm.GET_ANSWER)
         else:
-            await bot.send_message(message.from_user.id, 'Извините, данные введины неверно, попробуйте снова. ')
+            await bot.send_message(message.from_user.id, 'Извините, данные введины неверно, попробуйте снова. ', reply_markup=reply_keyboard())
             await state.clear()
     except Exception:
-        await bot.send_message(message.from_user.id, 'Извините, данные введины неверно, попробуйте снова. ')
+        await bot.send_message(message.from_user.id, 'Извините, данные введины неверно, попробуйте снова. ', reply_markup=reply_keyboard())
         await state.clear()
         
 async def get_add_acc_answer(message: Message, bot: Bot, state: FSMContext):
@@ -97,16 +97,16 @@ async def get_add_acc_answer(message: Message, bot: Bot, state: FSMContext):
                 client = TelegramClient(session=session, api_id=api_id, api_hash=api_hash, system_version='4.16.30-vxCUSTOM')
                 await client.start(phone, password=password)
                 DB.db_add_acc(phone, api_id, api_hash)
-                await bot.send_message(message.from_user.id, f'Готово!' )
+                await bot.send_message(message.from_user.id, f'Готово!', reply_markup=reply_keyboard() )
                 await state.clear()
             except Exception:
-                await bot.send_message(message.from_user.id, f'Проверьте корректность введённых данных.' )
+                await bot.send_message(message.from_user.id, f'Проверьте корректность введённых данных.', reply_markup=reply_keyboard() )
                 await state.clear()
         else:
-            await bot.send_message(message.from_user.id, 'Отмененно.')
+            await bot.send_message(message.from_user.id, 'Отмененно.', reply_markup=reply_keyboard())
             await state.clear()
     except Exception:
-        await bot.send_message(message.from_user.id, 'Отмененно.')
+        await bot.send_message(message.from_user.id, 'Отмененно.', reply_markup=reply_keyboard())
         await state.clear()
 
 
@@ -121,10 +121,10 @@ async def get_en_acc_answer(message: Message, bot: Bot, state: FSMContext):
         context_data = await state.get_data()
         phone = context_data['name'][int(message.text)-1][0].strip()
         DB.db_change_acc_state(phone, 1)
-        await bot.send_message(message.from_user.id, f'Готово!' )
+        await bot.send_message(message.from_user.id, f'Готово!', reply_markup=reply_keyboard() )
         await state.clear()
     except Exception:
-        await bot.send_message(message.from_user.id, f'Ошибка' )
+        await bot.send_message(message.from_user.id, f'Ошибка', reply_markup=reply_keyboard() )
         await state.clear()
     
     
@@ -139,10 +139,10 @@ async def get_dis_acc_answer(message: Message, bot: Bot, state: FSMContext):
         context_data = await state.get_data()
         phone = context_data['name'][int(message.text)-1][0].strip()
         DB.db_change_acc_state(phone, 0)
-        await bot.send_message(message.from_user.id, f'Готово!' )
+        await bot.send_message(message.from_user.id, f'Готово!', reply_markup=reply_keyboard() )
         await state.clear()
     except Exception:
-        await bot.send_message(message.from_user.id, f'Ошибка' )
+        await bot.send_message(message.from_user.id, f'Ошибка', reply_markup=reply_keyboard() )
         await state.clear()
         
         
@@ -155,7 +155,7 @@ async def get_pars_users_answer(message: Message, bot: Bot, state: FSMContext):
         url = message.text
         accs = DB.db_get_all_accs()
         if len(accs) == 0:
-            await bot.send_message(message.from_user.id, 'Нет аккаунтов, или нет активных аккаунтов. ')
+            await bot.send_message(message.from_user.id, 'Нет аккаунтов, или нет активных аккаунтов. ', reply_markup=reply_keyboard())
         else:
             RandAcc:tuple = random.choice(accs)
             phone = RandAcc[1]
@@ -168,10 +168,11 @@ async def get_pars_users_answer(message: Message, bot: Bot, state: FSMContext):
             channel = await client.get_entity(url)
             query_list = list()
     except Exception:
-        await bot.send_message(message.from_user.id, f'Проверьте ссылку, и состоит ли пользователь в группе. ')
+        await bot.send_message(message.from_user.id, f'Проверьте ссылку, и состоит ли пользователь в группе. ', reply_markup=reply_keyboard())
+        await state.clear()
         logging.error(ex,exc_info=True)
         await client.disconnect()
-        await state.clear()
+    await state.clear()
     try:
         iter_users = client.iter_participants(channel)
         all_id = DB.db_get_all_users_ids()
@@ -188,28 +189,58 @@ async def get_pars_users_answer(message: Message, bot: Bot, state: FSMContext):
         if len(query_list) > 0:
             DB.db_add_users(query_list)
         await client.disconnect()
-        await bot.send_message(message.from_user.id, f'Парсинг завершен! Получена информация о {len(query_list)} пользователей')
+        await bot.send_message(message.from_user.id, f'Парсинг завершен! Получена информация о {len(query_list)} пользователей', reply_markup=reply_keyboard())
         await state.clear()
     except Exception:
-        await bot.send_message(message.from_user.id, f'Проверьте чтобы это был открытый канал. ')
+        await bot.send_message(message.from_user.id, f'Проверьте чтобы это был открытый канал. ', reply_markup=reply_keyboard())
         await client.disconnect()
         await state.clear()
     await state.clear()
-        
+
+async def get_enable_all_users(message: Message, bot: Bot):
+    DB.db_enable_all_users()
+    await bot.send_message(message.from_user.id, f'Все пользователи теперь доступны для рассылки. ', reply_markup=reply_keyboard())
+
 async def get_send_message(message: Message, bot: Bot, state: FSMContext):
     await bot.send_message(message.from_user.id, f'Введите сообщение: ')
     await state.set_state(StepsForm.GET_MES)
 
 async def get_send_message_answer(message: Message, bot: Bot, state: FSMContext):
     try:
+        print(1)
+        en = message.entities
+        print(en)
+        print(len(en))
         mes = message.text
+        split_mes = mes.split()
+        text_length = 0
+        length = 0
+        pr_link = 0
+        try:
+            for c, e in enumerate(en):
+                print(c)
+                if e.type == 'text_link' and pr_link!=e.url:
+                    print(3)
+                    pr_link = e.url
+                    print(pr_link)
+                    text_length = int(e.length)
+                    print(5)
+                    for i in split_mes[:c]:
+                        print(i)
+                        length += len(i)
+                        print(mes[length+c:length+c+1+text_length])
+                    mes.replace(mes[length+c:length+c+1+text_length], f'[{mes[length+c:length+c+1+text_length]}]({e.url})')
+                    print(8)
+        except Exception as ex:
+            print(ex)
+        print(mes)
         accs = DB.db_get_all_accs()
         all_name = DB.db_get_all_users_name()
         amount_send_messages = 0
         if len(accs) == 0:
-            await bot.send_message(message.from_user.id, 'Нет аккаунтов, или нет активных аккаунтов. ')
+            await bot.send_message(message.from_user.id, 'Нет аккаунтов, или нет активных аккаунтов. ', reply_markup=reply_keyboard())
         else:
-            await bot.send_message(message.from_user.id, 'Рассылка началась. ')
+            await bot.send_message(message.from_user.id, 'Рассылка началась. ', reply_markup=reply_keyboard())
             for account in accs:
                 try:
                     session = f"sessions/{account[1]}.session"
@@ -220,48 +251,49 @@ async def get_send_message_answer(message: Message, bot: Bot, state: FSMContext)
                     for name in all_name:
                         try:
                             if name in all_name:
-                                await client.send_message(f'@{name}', mes)
+                                await client.send_message(f'@{name}', mes, parse_mode='markdown')
                                 amount_send_messages += 1
                                 DB.db_change_user_state(name)
                                 all_name.remove(name)
                                 print(f"отправлено сообщение пользователю: @{name}")
                                 await asyncio.sleep(random.randint(30, 90))
                         except FloodWaitError:
-                            await bot.send_message(message.from_user.id, 'К сожалению аккаунт не сможет отправлять сообщения какое-то время...')
+                            await bot.send_message(message.from_user.id, 'К сожалению аккаунт не сможет отправлять сообщения какое-то время...', reply_markup=reply_keyboard())
                             await bot.send_message(message.from_user.id, f'Смена аккаунта {account[1]}')
                             await client.disconnect()
                             await asyncio.sleep(1.5)
                             break
                         except PeerFloodError:
-                            await bot.send_message(message.from_user.id, 'Было произведено слишком много запросов (при отправлении сообщений) осталось {trys} попыток. ')
+                            await bot.send_message(message.from_user.id, 'Было произведено слишком много запросов (при отправлении сообщений) осталось {trys} попыток. ', reply_markup=reply_keyboard())
                             trys-=1
                             if trys<=0:
-                                await bot.send_message(message.from_user.id, f'Смена аккаунта {account[1]}')
+                                await bot.send_message(message.from_user.id, f'Смена аккаунта {account[1]}', reply_markup=reply_keyboard())
                                 await asyncio.sleep(1.5)
                                 break
                         except UserDeactivatedBanError:
-                            await bot.send_message(message.from_user.id, f'Аккаунт {account[1]} был заблокирован или взломан!')
+                            await bot.send_message(message.from_user.id, f'Аккаунт {account[1]} был заблокирован или взломан!', reply_markup=reply_keyboard())
                             await bot.send_message(message.from_user.id, f'Смена аккаунта {account[1]}')
                             await client.disconnect()
                             logging.exception("The user has been deleted/deactivated")
                             break
                         except Exception as ex:
                             print(ex)
-                            await bot.send_message(message.from_user.id, f'Не удалось отправить сообщение пользователю {id_}, осталось {trys_} попыток.')
-                            print(f'Не удалось отправить сообщение пользователю @{name}, осталось {trys_} попыток.')
+                            await bot.send_message(message.from_user.id, f'Не удалось отправить сообщение пользователю {id_}, осталось {trys_} попыток.', reply_markup=reply_keyboard())
+                            print(f'Не удалось отправить сообщение пользователю @{name}, осталось {trys_} попыток.', reply_markup=reply_keyboard())
                             trys_-=1
                             await asyncio.sleep(5.5)
                             if trys<=0:
-                                await bot.send_message(message.from_user.id, f'Смена аккаунта {account[1]}')
+                                await bot.send_message(message.from_user.id, f'Смена аккаунта {account[1]}', reply_markup=reply_keyboard())
                                 await client.disconnect()
                                 logging.exception(ex,exc_info=True)
                                 break
                 except Exception as ex:
-                    await bot.send_message(message.from_user.id, f'Не удалось подключиться к аккаунту {account[1]}, Пробую следующий..')
+                    await bot.send_message(message.from_user.id, f'Не удалось подключиться к аккаунту {account[1]}, Пробую следующий..', reply_markup=reply_keyboard())
                     logging.warning(ex,exc_info=True)
-            await bot.send_message(message.from_user.id, f'Рассылка завершена, было отправлено: {amount_send_messages} сообщений пользователям!')
-    except Exception:
-        await bot.send_message(message.from_user.id, f'Ошибка' )
+            await bot.send_message(message.from_user.id, f'Рассылка завершена, было отправлено: {amount_send_messages} сообщений пользователям!', reply_markup=reply_keyboard())
+    except Exception as ex:
+        print(ex)
+        await bot.send_message(message.from_user.id, f'Ошибка', reply_markup=reply_keyboard() )
     await state.clear()    
     
 
@@ -275,6 +307,7 @@ async def start():
     dp.message.register(get_start, Command(commands=['start']))
     dp.message.register(get_help, Command(commands=['help']))
     dp.message.register(get_accs, Command(commands=['accs']))
+    dp.message.register(get_enable_all_users, Command(commands=['enable_users']))
     dp.message.register(get_users, Command(commands=['users']))
     dp.message.register(get_add_acc, Command(commands=['add_acc']))
     dp.message.register(get_add_acc_flag, StepsForm.GET_FLAG)

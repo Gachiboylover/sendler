@@ -5,9 +5,10 @@ def reply_keyboard():
     reply_keyboard.button(text='/send_message')
     reply_keyboard.button(text='/pars_users')
     reply_keyboard.button(text='/accs')
+    reply_keyboard.button(text='/enable_users')
     reply_keyboard.button(text='/users')
     reply_keyboard.button(text='/help')
-    reply_keyboard.adjust(1, 1, 2, 1)
+    reply_keyboard.adjust(1, 1, 2, 2)
     return reply_keyboard.as_markup(resize_keyboard=True, one_time_keyboard=True)
 
 def reply_keyboard_answer():

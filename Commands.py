@@ -29,7 +29,11 @@ async def set_commands(bot: Bot):
         ),
         BotCommand(
             command='send_message',
-            description='Отправьте сообщение.'
+            description='Отправьте сообщение.' 
+        ),
+        BotCommand(
+            command='enable_users',
+            description='Сделайте всех пользователей активными для рассылки.'
         ),
         BotCommand(
             command='users',

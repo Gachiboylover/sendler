@@ -20,11 +20,12 @@ class DataBase:
                         last_name TEXT,
                         phone TEXT,
                         where_link TEXT,
-                        sending INT);
+                        state INT);
         ''')
+        self.cursor.execute('CREATE UNIQUE INDEX IF NOT EXISTS idx_id ON accs(api_id);')
                 
     def db_add_acc(self, phone, api_id, api_hash):
-        self.cursor.execute(f'INSERT INTO accs (phone, api_id, api_hash, state) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING', (phone, api_id, api_hash, 0))
+        self.cursor.execute(f'INSERT OR IGNORE INTO accs (phone, api_id, api_hash, state) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING', (phone, api_id, api_hash, 0))
         self.db.commit()
     
     def db_show_all_accs(self):
@@ -64,12 +65,16 @@ class DataBase:
         return all_id
     
     def db_get_all_users(self):
-        self.cursor.execute(f'SELECT * FROM users')
+        self.cursor.execute(f'SELECT * FROM users WHERE state = ?', (1,))
         all_users = self.cursor.fetchall()
         all_users = [list(i) for i in all_users]
         self.db.commit()
         return all_users
     
+    def db_enable_all_users(self):
+        self.cursor.execute(f'UPDATE users SET state = ?', (1,))
+        self.db.commit()
+        
     def db_change_user_state(self, name):
-        self.cursor.execute(f'UPDATE users SET sending = ? WHERE username = ?', (0, name))
+        self.cursor.execute(f'UPDATE users SET state = ? WHERE username = ?', (0, name))
         self.db.commit()
