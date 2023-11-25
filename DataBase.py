@@ -49,7 +49,14 @@ class DataBase:
         self.db.commit()
         return all_accs
     
-    def db_get_all_users_id(self):
+    def db_get_all_users_name(self):
+        self.cursor.execute(f'SELECT username FROM users')
+        all_name = self.cursor.fetchall()
+        all_name = [i[0] for i in all_name]
+        self.db.commit()
+        return all_name
+    
+    def db_get_all_users_ids(self):
         self.cursor.execute(f'SELECT id FROM users')
         all_id = self.cursor.fetchall()
         all_id = [i[0] for i in all_id]
@@ -63,6 +70,6 @@ class DataBase:
         self.db.commit()
         return all_users
     
-    def db_change_user_state(self, id_):
-        self.cursor.execute(f'UPDATE users SET sending = ? WHERE id = ?', (0, id_))
+    def db_change_user_state(self, name):
+        self.cursor.execute(f'UPDATE users SET sending = ? WHERE username = ?', (0, name))
         self.db.commit()

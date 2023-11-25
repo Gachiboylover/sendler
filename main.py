@@ -11,7 +11,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from opentele.tl import TelegramClient
-from opentele.tl.telethon import functions, utils, types
+from opentele.tl.telethon import utils, types
 from telethon.errors import UserDeactivatedBanError,PeerFloodError,FloodWaitError
 from dotenv import load_dotenv
 from openpyxl import Workbook
@@ -174,7 +174,7 @@ async def get_pars_users_answer(message: Message, bot: Bot, state: FSMContext):
         await state.clear()
     try:
         iter_users = client.iter_participants(channel)
-        all_id = DB.db_get_all_users_id()
+        all_id = DB.db_get_all_users_ids()
         async for user in iter_users:
             user:utils.types.User = user
             if not user.bot and not user.deleted and user.id not in all_id:
@@ -204,7 +204,7 @@ async def get_send_message_answer(message: Message, bot: Bot, state: FSMContext)
     try:
         mes = message.text
         accs = DB.db_get_all_accs()
-        all_id = DB.db_get_all_users_id()
+        all_name = DB.db_get_all_users_name()
         amount_send_messages = 0
         if len(accs) == 0:
             await bot.send_message(message.from_user.id, 'Нет аккаунтов, или нет активных аккаунтов. ')
@@ -215,17 +215,16 @@ async def get_send_message_answer(message: Message, bot: Bot, state: FSMContext)
                     session = f"sessions/{account[1]}.session"
                     client = TelegramClient(session=session, api_id=account[2], api_hash=account[3], system_version='4.16.30-vxCUSTOM')
                     await client.connect()
-                    for id_ in all_id:
+                    trys = 3
+                    trys_ = 3
+                    for name in all_name:
                         try:
-                            trys = 4
-                            trys_ = 4
-                            if id_ in all_id:
-                                peer = types.PeerUser(int(id_))
-                                await client.send_message(peer, mes)
+                            if name in all_name:
+                                await client.send_message(f'@{name}', mes)
                                 amount_send_messages += 1
-                                DB.db_change_user_state(id_)
-                                all_id.remove(id_)
-                                print(f"отправлено сообщение пользователю: {id_}")
+                                DB.db_change_user_state(name)
+                                all_name.remove(name)
+                                print(f"отправлено сообщение пользователю: @{name}")
                                 await asyncio.sleep(random.randint(30, 90))
                         except FloodWaitError:
                             await bot.send_message(message.from_user.id, 'К сожалению аккаунт не сможет отправлять сообщения какое-то время...')
@@ -247,14 +246,15 @@ async def get_send_message_answer(message: Message, bot: Bot, state: FSMContext)
                             logging.exception("The user has been deleted/deactivated")
                             break
                         except Exception as ex:
+                            print(ex)
                             await bot.send_message(message.from_user.id, f'Не удалось отправить сообщение пользователю {id_}, осталось {trys_} попыток.')
-                            print(f'Не удалось отправить сообщение пользователю {id_}, осталось {trys_} попыток.')
+                            print(f'Не удалось отправить сообщение пользователю @{name}, осталось {trys_} попыток.')
                             trys_-=1
+                            await asyncio.sleep(5.5)
                             if trys<=0:
                                 await bot.send_message(message.from_user.id, f'Смена аккаунта {account[1]}')
                                 await client.disconnect()
                                 logging.exception(ex,exc_info=True)
-                                await asyncio.sleep(5.5)
                                 break
                 except Exception as ex:
                     await bot.send_message(message.from_user.id, f'Не удалось подключиться к аккаунту {account[1]}, Пробую следующий..')
