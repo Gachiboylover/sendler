@@ -196,8 +196,9 @@ async def get_pars_users_answer(message: Message, bot: Bot, state: FSMContext):
                         user = await client(GetFullUserRequest(int(mes.from_id.user_id)))
                     except Exception:
                         continue 
-                    print(user)
-                    user = user.users
+                    user = str(user)[str(user).find('users=[User'):]
+                    user_id =user[user.find('id')+3:user.find(',')]
+                    print(user_id)
                     #user = await client.get_entity(mes.from_id)
                     print(user)
                     #id_ = user.id
@@ -207,6 +208,7 @@ async def get_pars_users_answer(message: Message, bot: Bot, state: FSMContext):
                     #hash = user.access_hash
                     #phone = user.phone if user.phone else ''
                     #query_list.append((id_,username,hash,fn,ln,phone,url,1))
+                    break
         if len(query_list) > 0:
             DB.db_add_users(query_list)
         await client.disconnect()
