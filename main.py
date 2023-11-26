@@ -13,6 +13,8 @@ from aiogram.fsm.state import StatesGroup, State
 from opentele.tl import TelegramClient
 from opentele.tl.telethon import utils, types
 from telethon.errors import UserDeactivatedBanError,PeerFloodError,FloodWaitError
+from telethon.tl.functions.channels import JoinChannelRequest
+from telethon.tl.functions.users import GetFullUserRequest
 from dotenv import load_dotenv
 from openpyxl import Workbook
 
@@ -49,7 +51,9 @@ async def get_start(message: Message, bot: Bot):
 
 async def get_help(message: Message, bot: Bot):
     await bot.send_message(message.from_user.id, f'Привет {message.from_user.first_name}.\n"/add_acc" - загрузи сессию.\n"/enable_acc" - сделай аккаунт активным.\n"/disable" - сделай аккаунт неактивным.\n"/pars_users" - спарси пользователей.\n"/send_message" - начни рассылку.\n"/users" - данные о пользователях(xlsx).\n"/enable_users" - сделай всех пользователей активными для рассылки.\nВАЖНОЕ! При парсинге следите за тем, чтобы бот был в канале, и чтобы канал был открытым.', reply_markup=reply_keyboard())
-
+    global client
+    await client.disconnect()
+    
 async def get_users(message: Message, bot: Bot):
     wb = Workbook()
     ws = wb.active
@@ -162,10 +166,15 @@ async def get_pars_users_answer(message: Message, bot: Bot, state: FSMContext):
             api_id = RandAcc[2]
             api_hash = RandAcc[3]
             session = f'sessions/{phone}.session'
+            global client
             client = TelegramClient(session=session, api_id=api_id, api_hash=api_hash, system_version='4.16.30-vxCUSTOM')
             await client.connect()
             await bot.send_message(message.from_user.id, f'Выбран аккаунт: {phone}. ')
             channel = await client.get_entity(url)
+            try:
+                await client(JoinChannelRequest(channel))
+            except Exception as ex:
+                print(ex)
             query_list = list()
     except Exception:
         await bot.send_message(message.from_user.id, f'Проверьте ссылку, и состоит ли пользователь в группе. ', reply_markup=reply_keyboard())
@@ -174,24 +183,37 @@ async def get_pars_users_answer(message: Message, bot: Bot, state: FSMContext):
         await client.disconnect()
     await state.clear()
     try:
-        iter_users = client.iter_participants(channel)
+        print(1)
+        iter_mes = client.iter_messages(channel)
+        print(2)
         all_id = DB.db_get_all_users_ids()
-        async for user in iter_users:
-            user:utils.types.User = user
-            if not user.bot and not user.deleted and user.id not in all_id:
-                    id_ = user.id
-                    username = user.username if user.username else ''
-                    fn = user.first_name
-                    ln = user.last_name if user.last_name else ''
-                    hash = user.access_hash
-                    phone = user.phone if user.phone else ''
-                    query_list.append((id_,username,hash,fn,ln,phone,url,1))
+        async for mes in iter_mes:
+            print(mes.from_id.user_id)
+            #user:utils.types.User = user
+            #if not user.bot and not user.deleted and user.id not in all_id:
+            if mes.from_id not in all_id:
+                    try:
+                        user = await client(GetFullUserRequest(int(mes.from_id.user_id)))
+                    except Exception:
+                        continue 
+                    print(user)
+                    user = user.users
+                    #user = await client.get_entity(mes.from_id)
+                    print(user)
+                    #id_ = user.id
+                    #username = user.username if user.username else ''
+                    #fn = user.first_name
+                    #ln = user.last_name if user.last_name else ''
+                    #hash = user.access_hash
+                    #phone = user.phone if user.phone else ''
+                    #query_list.append((id_,username,hash,fn,ln,phone,url,1))
         if len(query_list) > 0:
             DB.db_add_users(query_list)
         await client.disconnect()
         await bot.send_message(message.from_user.id, f'Парсинг завершен! Получена информация о {len(query_list)} пользователей', reply_markup=reply_keyboard())
         await state.clear()
-    except Exception:
+    except Exception as ex:
+        print(ex)
         await bot.send_message(message.from_user.id, f'Проверьте чтобы это был открытый канал. ', reply_markup=reply_keyboard())
         await client.disconnect()
         await state.clear()
@@ -207,30 +229,16 @@ async def get_send_message(message: Message, bot: Bot, state: FSMContext):
 
 async def get_send_message_answer(message: Message, bot: Bot, state: FSMContext):
     try:
-        print(1)
         en = message.entities
-        print(en)
-        print(len(en))
         mes = message.text
-        split_mes = mes.split()
-        text_length = 0
-        length = 0
-        pr_link = 0
+        flen = 0
         try:
             for c, e in enumerate(en):
-                print(c)
-                if e.type == 'text_link' and pr_link!=e.url:
-                    print(3)
-                    pr_link = e.url
-                    print(pr_link)
-                    text_length = int(e.length)
-                    print(5)
-                    for i in split_mes[:c]:
-                        print(i)
-                        length += len(i)
-                        print(mes[length+c:length+c+1+text_length])
-                    mes.replace(mes[length+c:length+c+1+text_length], f'[{mes[length+c:length+c+1+text_length]}]({e.url})')
-                    print(8)
+                if e.type == 'text_link':
+                    length = e.length
+                    off = int(e.offset)
+                mes = mes.replace(mes[off+flen:off+length+flen], f'[{mes[off+flen:off+length+flen]}]({e.url})')
+                flen+=4+len(e.url)
         except Exception as ex:
             print(ex)
         print(mes)
