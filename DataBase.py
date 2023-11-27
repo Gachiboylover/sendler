@@ -51,7 +51,7 @@ class DataBase:
         return all_accs
     
     def db_get_all_users_name(self):
-        self.cursor.execute(f'SELECT username FROM users')
+        self.cursor.execute(f'SELECT username FROM users WHERE state = ?', (1, ))
         all_name = self.cursor.fetchall()
         all_name = [i[0] for i in all_name]
         self.db.commit()
@@ -65,7 +65,7 @@ class DataBase:
         return all_id
     
     def db_get_all_users(self):
-        self.cursor.execute(f'SELECT * FROM users WHERE state = ?', (1,))
+        self.cursor.execute(f'SELECT * FROM users')
         all_users = self.cursor.fetchall()
         all_users = [list(i) for i in all_users]
         self.db.commit()

@@ -12,9 +12,10 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from opentele.tl import TelegramClient
 from opentele.tl.telethon import utils, types
-from telethon.errors import UserDeactivatedBanError,PeerFloodError,FloodWaitError
-from telethon.tl.functions.channels import JoinChannelRequest
+from telethon.errors import UserDeactivatedBanError, PeerFloodError, FloodWaitError, rpcbaseerrors
+from telethon.tl.functions.channels import JoinChannelRequest, GetParticipantsRequest
 from telethon.tl.functions.users import GetFullUserRequest
+from telethon.tl.types import ChannelParticipantsSearch
 from dotenv import load_dotenv
 from openpyxl import Workbook
 
@@ -171,11 +172,8 @@ async def get_pars_users_answer(message: Message, bot: Bot, state: FSMContext):
             await client.connect()
             await bot.send_message(message.from_user.id, f'Выбран аккаунт: {phone}. ')
             channel = await client.get_entity(url)
-            try:
-                await client(JoinChannelRequest(channel))
-            except Exception as ex:
-                print(ex)
             query_list = list()
+            flag = 0
     except Exception:
         await bot.send_message(message.from_user.id, f'Проверьте ссылку, и состоит ли пользователь в группе. ', reply_markup=reply_keyboard())
         await state.clear()
@@ -183,32 +181,38 @@ async def get_pars_users_answer(message: Message, bot: Bot, state: FSMContext):
         await client.disconnect()
     await state.clear()
     try:
-        print(1)
-        iter_mes = client.iter_messages(channel)
-        print(2)
-        all_id = DB.db_get_all_users_ids()
-        async for mes in iter_mes:
-            print(mes.from_id.user_id)
-            #user:utils.types.User = user
-            #if not user.bot and not user.deleted and user.id not in all_id:
-            if mes.from_id not in all_id:
-                    try:
-                        user = await client(GetFullUserRequest(int(mes.from_id.user_id)))
-                    except Exception:
-                        continue 
-                    user = str(user)[str(user).find('users=[User'):]
-                    user_id =user[user.find('id')+3:user.find(',')]
-                    print(user_id)
-                    #user = await client.get_entity(mes.from_id)
-                    print(user)
-                    #id_ = user.id
-                    #username = user.username if user.username else ''
-                    #fn = user.first_name
-                    #ln = user.last_name if user.last_name else ''
-                    #hash = user.access_hash
-                    #phone = user.phone if user.phone else ''
-                    #query_list.append((id_,username,hash,fn,ln,phone,url,1))
-                    break
+        if flag == 1:
+            try:
+                await client(JoinChannelRequest(channel))
+            except Exception as ex:
+                print(ex)
+            iter_mes = client.iter_messages(channel)
+            all_id = DB.db_get_all_users_ids()
+            async for mes in iter_mes:
+                print(mes.from_id.user_id)
+                if mes.from_id not in all_id:
+                        try:
+                            user = await client(GetFullUserRequest(int(mes.from_id.user_id)))
+                        except Exception:
+                            continue 
+                        user = str(user)[str(user).find('users=[User'):]
+                        user_id = user[user.find('id')+3:user.find(',')]
+                        user_name = user[user.find('')]
+                        print(user, user_name)
+                        break
+        else:
+            iter_users = client.iter_participants(channel)
+            all_id = DB.db_get_all_users_ids()
+            async for user in iter_users:
+                user:utils.types.User = user
+                if not user.bot and not user.deleted and user.id not in all_id:
+                        id_ = user.id
+                        username = user.username if user.username else ''
+                        fn = user.first_name
+                        ln = user.last_name if user.last_name else ''
+                        hash = user.access_hash
+                        phone = user.phone if user.phone else ''
+                        query_list.append((id_,username,hash,fn,ln,phone,url,1))
         if len(query_list) > 0:
             DB.db_add_users(query_list)
         await client.disconnect()
@@ -236,6 +240,7 @@ async def get_send_message_answer(message: Message, bot: Bot, state: FSMContext)
         flen = 0
         try:
             for c, e in enumerate(en):
+                print(e)
                 if e.type == 'text_link':
                     length = e.length
                     off = int(e.offset)
@@ -244,6 +249,7 @@ async def get_send_message_answer(message: Message, bot: Bot, state: FSMContext)
         except Exception as ex:
             print(ex)
         print(mes)
+        flag = 1
         accs = DB.db_get_all_accs()
         all_name = DB.db_get_all_users_name()
         amount_send_messages = 0
@@ -252,54 +258,63 @@ async def get_send_message_answer(message: Message, bot: Bot, state: FSMContext)
         else:
             await bot.send_message(message.from_user.id, 'Рассылка началась. ', reply_markup=reply_keyboard())
             for account in accs:
-                try:
-                    session = f"sessions/{account[1]}.session"
-                    client = TelegramClient(session=session, api_id=account[2], api_hash=account[3], system_version='4.16.30-vxCUSTOM')
-                    await client.connect()
-                    trys = 3
-                    trys_ = 3
-                    for name in all_name:
-                        try:
-                            if name in all_name:
-                                await client.send_message(f'@{name}', mes, parse_mode='markdown')
-                                amount_send_messages += 1
-                                DB.db_change_user_state(name)
-                                all_name.remove(name)
-                                print(f"отправлено сообщение пользователю: @{name}")
-                                await asyncio.sleep(random.randint(30, 90))
-                        except FloodWaitError:
-                            await bot.send_message(message.from_user.id, 'К сожалению аккаунт не сможет отправлять сообщения какое-то время...', reply_markup=reply_keyboard())
-                            await bot.send_message(message.from_user.id, f'Смена аккаунта {account[1]}')
-                            await client.disconnect()
-                            await asyncio.sleep(1.5)
-                            break
-                        except PeerFloodError:
-                            await bot.send_message(message.from_user.id, 'Было произведено слишком много запросов (при отправлении сообщений) осталось {trys} попыток. ', reply_markup=reply_keyboard())
-                            trys-=1
-                            if trys<=0:
-                                await bot.send_message(message.from_user.id, f'Смена аккаунта {account[1]}', reply_markup=reply_keyboard())
+                if flag == 1:
+                    try:
+                        global client
+                        session = f"sessions/{account[1]}.session"
+                        client = TelegramClient(session=session, api_id=account[2], api_hash=account[3], system_version='4.16.30-vxCUSTOM')
+                        await client.connect()
+                        trys = 3
+                        trys_ = 3
+                        for name in all_name:
+                            try:
+                                if name in all_name:
+                                    await client.send_message(f'@{name}', mes, parse_mode='markdown')
+                                    amount_send_messages += 1
+                                    DB.db_change_user_state(name)
+                                    all_name.remove(name)
+                                    print(f"отправлено сообщение пользователю: @{name}")
+                                    await asyncio.sleep(random.randint(30, 90))
+                            except FloodWaitError:
+                                await bot.send_message(message.from_user.id, 'К сожалению аккаунт не сможет отправлять сообщения какое-то время...', reply_markup=reply_keyboard())
+                                await bot.send_message(message.from_user.id, f'Смена аккаунта {account[1]}')
+                                await client.disconnect()
                                 await asyncio.sleep(1.5)
                                 break
-                        except UserDeactivatedBanError:
-                            await bot.send_message(message.from_user.id, f'Аккаунт {account[1]} был заблокирован или взломан!', reply_markup=reply_keyboard())
-                            await bot.send_message(message.from_user.id, f'Смена аккаунта {account[1]}')
-                            await client.disconnect()
-                            logging.exception("The user has been deleted/deactivated")
-                            break
-                        except Exception as ex:
-                            print(ex)
-                            await bot.send_message(message.from_user.id, f'Не удалось отправить сообщение пользователю {id_}, осталось {trys_} попыток.', reply_markup=reply_keyboard())
-                            print(f'Не удалось отправить сообщение пользователю @{name}, осталось {trys_} попыток.', reply_markup=reply_keyboard())
-                            trys_-=1
-                            await asyncio.sleep(5.5)
-                            if trys<=0:
-                                await bot.send_message(message.from_user.id, f'Смена аккаунта {account[1]}', reply_markup=reply_keyboard())
+                            except PeerFloodError:
+                                await bot.send_message(message.from_user.id, 'Было произведено слишком много запросов (при отправлении сообщений) осталось {trys} попыток. ', reply_markup=reply_keyboard())
+                                trys-=1
+                                if trys<=0:
+                                    await bot.send_message(message.from_user.id, f'Смена аккаунта {account[1]}', reply_markup=reply_keyboard())
+                                    await asyncio.sleep(1.5)
+                                    break
+                            except UserDeactivatedBanError:
+                                await bot.send_message(message.from_user.id, f'Аккаунт {account[1]} был заблокирован или взломан!', reply_markup=reply_keyboard())
+                                await bot.send_message(message.from_user.id, f'Смена аккаунта {account[1]}')
                                 await client.disconnect()
-                                logging.exception(ex,exc_info=True)
+                                logging.exception("The user has been deleted/deactivated")
                                 break
-                except Exception as ex:
-                    await bot.send_message(message.from_user.id, f'Не удалось подключиться к аккаунту {account[1]}, Пробую следующий..', reply_markup=reply_keyboard())
-                    logging.warning(ex,exc_info=True)
+                            except ConnectionError:
+                                await bot.send_message(message.from_user.id, f'Рассылка отменена. ')
+                                await client.disconnect()
+                                flag = 0
+                                break
+                            except Exception as ex:
+                                print(ex)
+                                await bot.send_message(message.from_user.id, f'Не удалось отправить сообщение пользователю {id_}, осталось {trys_} попыток.', reply_markup=reply_keyboard())
+                                print(f'Не удалось отправить сообщение пользователю @{name}, осталось {trys_} попыток.', reply_markup=reply_keyboard())
+                                trys_-=1
+                                await asyncio.sleep(5.5)
+                                if trys<=0:
+                                    await bot.send_message(message.from_user.id, f'Смена аккаунта {account[1]}', reply_markup=reply_keyboard())
+                                    await client.disconnect()
+                                    logging.exception(ex,exc_info=True)
+                                    break
+                    except Exception as ex:
+                        await bot.send_message(message.from_user.id, f'Не удалось подключиться к аккаунту {account[1]}, Пробую следующий..', reply_markup=reply_keyboard())
+                        logging.warning(ex,exc_info=True)
+                else:
+                    break 
             await bot.send_message(message.from_user.id, f'Рассылка завершена, было отправлено: {amount_send_messages} сообщений пользователям!', reply_markup=reply_keyboard())
     except Exception as ex:
         print(ex)
