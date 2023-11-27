@@ -18,6 +18,7 @@ from telethon.tl.functions.users import GetFullUserRequest
 from telethon.tl.types import ChannelParticipantsSearch
 from dotenv import load_dotenv
 from openpyxl import Workbook
+from emoji import distinct_emoji_list
 
 from Commands import set_commands
 from Keyboards import reply_keyboard, reply_keyboard_accs, reply_keyboard_answer 
@@ -238,14 +239,23 @@ async def get_send_message_answer(message: Message, bot: Bot, state: FSMContext)
         en = message.entities
         mes = message.text
         flen = 0
+        emo = 0
+        past = 0
+        emo_list = distinct_emoji_list(mes)
         try:
             for c, e in enumerate(en):
                 print(e)
                 if e.type == 'text_link':
                     length = e.length
                     off = int(e.offset)
-                mes = mes.replace(mes[off+flen:off+length+flen], f'[{mes[off+flen:off+length+flen]}]({e.url})')
-                flen+=4+len(e.url)
+                    print(mes[past:off+flen])
+                    for i in mes[past:off+flen]:
+                        if i in emo_list:
+                            print(i)
+                            emo+=1
+                    mes = mes.replace(mes[off+flen-emo:off+length+flen-emo], f'[{mes[off+flen-emo:off+length+flen-emo]}]({e.url})')
+                    past+=length
+                    flen+=4+len(e.url)
         except Exception as ex:
             print(ex)
         print(mes)
